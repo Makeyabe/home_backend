@@ -34,13 +34,14 @@ type FormSection struct {
 // FormField represents each question/field in a section
 // FormField represents each question/field in a section
 type FormField struct {
-	ID         uint           `gorm:"primaryKey"`
-	SectionID  uint           `gorm:"not null"`                  // Foreign key to FormSection
-	Label      string         `gorm:"type:varchar(255)"`         // Question/label for the field (e.g., "House Type")
-	FieldType  string         `gorm:"type:varchar(50);not null"` // Field type (e.g., "text", "radio", "checkbox")
-	Options    string         `gorm:"type:text"`                 // JSON string of options for radio/checkbox fields (optional)
-	FieldOrder int            `gorm:"not null"`                  // Order of the field in the section
-	CreatedAt  time.Time      `json:"-"`                         // Exclude CreatedAt from JSON
-	UpdatedAt  time.Time      `json:"-"`                         // Exclude UpdatedAt from JSON
-	DeletedAt  gorm.DeletedAt `json:"-"`                         // Exclude DeletedAt from JSON
+    ID         uint           `gorm:"primaryKey"`
+    SectionID  uint           `gorm:"not null"`                                             // Foreign key to FormSection
+    Label      string         `gorm:"type:varchar(255)"`                                    // Question/label for the field (e.g., "House Type")
+    FieldType  string         `gorm:"type:varchar(50);not null"`                            // Field type (e.g., "text", "radio", "checkbox")
+    Options    string         `gorm:"type:text"`                                            // JSON string of options for radio/checkbox fields (optional)
+    FieldOrder int            `gorm:"not null"`                                             // Order of the field in the section
+    FieldScore int            `gorm:"default:null"` // Score (must be between 1 and 5 and set default point as 1)
+    CreatedAt  time.Time      `json:"-"`                                                    // Exclude CreatedAt from JSON
+    UpdatedAt  time.Time      `json:"-"`                                                    // Exclude UpdatedAt from JSON
+    DeletedAt  gorm.DeletedAt `json:"-"`                                                    // Exclude DeletedAt from JSON
 }

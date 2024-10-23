@@ -9,8 +9,8 @@ func FormResponseRoutes(router *gin.RouterGroup, FormResponseController *control
 	formRoutes := router.Group("/form-responses")
 	{
 		formRoutes.POST("/", FormResponseController.CreateFormResponse)
-		// formRoutes.GET("/:id", func(c *gin.Context) { controllers.GetFormResponse(c, db) })
-		// formRoutes.PUT("/:id", func(c *gin.Context) { controllers.UpdateFormResponse(c, db) })
-		// formRoutes.DELETE("/:id", func(c *gin.Context) { controllers.DeleteFormResponse(c, db) })
+		formRoutes.GET("/:id", FormResponseController.GetFormResponse)   // ดึงฟอร์มตอบสนองตาม ID
+		formRoutes.PUT("/:id", FormResponseController.UpdateFormResponse) // แก้ไขฟอร์มตอบสนองตาม ID
+		formRoutes.DELETE("/:id", FormResponseController.DeleteFormResponse) // ลบฟอร์มตอบสนองตาม ID
 	}
 }

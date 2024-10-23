@@ -8,25 +8,33 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
+type FormResponseController struct {
+	DB *gorm.DB
+}
+
+func NewFormResponseController(db *gorm.DB) *FormResponseController {
+	return &FormResponseController{DB: db}
+}
+
 
 // CreateFormResponse รับข้อมูลการส่งฟอร์มจากผู้ใช้และบันทึกลงฐานข้อมูล
-func CreateFormResponse(c *gin.Context, db *gorm.DB) {
+func (frc *FormResponseController) CreateFormResponse(ctx *gin.Context) {
 	var formResponse model.FormResponse
 
 	// Bind JSON payload กับตัวแปร formResponse
-	if err := c.ShouldBindJSON(&formResponse); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if err := ctx.ShouldBindJSON(&formResponse); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
 	// บันทึกลงฐานข้อมูล
 	if err := db.Create(&formResponse).Error; err != nil {
 		log.Println("Failed to create form response:", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create form response"})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create form response"})
 		return
 	}
 
-	c.JSON(http.StatusCreated, formResponse)
+	ctx.JSON(http.StatusCreated, formResponse)
 }
 
 // GetFormResponse รับข้อมูล FormResponse จากฐานข้อมูลตาม ID

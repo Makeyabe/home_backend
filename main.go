@@ -15,8 +15,6 @@ var (
 	server                 *gin.Engine
 	AuthController         controllers.AuthController
 	AuthRouteController    routes.AuthRouteController
-	AdminController        controllers.AdminController
-	AdminRouteController   routes.AdminRouteController
 	TeacherController      *controllers.TeacherController
 	TeacherRouteController routes.TeacherRouteController
 	StudentController      *controllers.StudentController
@@ -33,17 +31,13 @@ func init() {
 	AuthController = controllers.NewAuthController(initializers.DB)
 	AuthRouteController = routes.NewAuthRouteController(AuthController)
 
-	AdminController = controllers.NewAdminController(initializers.DB)      // กำหนดค่า AdminController
-	AdminRouteController = routes.NewAdminRouteController(AdminController) // กำหนดค่า AdminRouteController
+	TeacherController = controllers.NewTeacherController(initializers.DB)
+	TeacherRouteController = routes.NewTeacherRouteController(TeacherController)
 
-	TeacherController = controllers.NewTeacherController(initializers.DB)        // กำหนดค่า TeacherController
-	TeacherRouteController = routes.NewTeacherRouteController(TeacherController) // กำหนดค่า TeacherRouteController
-
-	StudentController = controllers.NewStudentController(initializers.DB) // กำหนดค่า StudentController
+	StudentController = controllers.NewStudentController(initializers.DB)
 	FormController = controllers.NewFormController(initializers.DB)
 
 	server = gin.Default()
-
 }
 
 func main() {
@@ -56,7 +50,6 @@ func main() {
 	corsConfig.AllowOrigins = []string{"http://localhost:8000", config.ClientOrigin}
 	corsConfig.AllowCredentials = true
 	corsConfig.AllowHeaders = []string{"Access-Control-Allow-Origin", "*"}
-
 	server.Use(cors.New(corsConfig))
 
 	router := server.Group("/api")
@@ -66,15 +59,14 @@ func main() {
 	})
 
 	AuthRouteController.AuthRoute(router)
-	AdminRouteController.AdminRoute(router)         // เส้นทาง Admin
-	TeacherRouteController.TeacherRoutes(router)    // เส้นทาง Teacher
-	routes.StudentRoutes(router, StudentController) // เส้นทาง Student
+	TeacherRouteController.TeacherRoutes(router)
+	routes.StudentRoutes(router, StudentController)
 	routes.FormRoutes(router, FormController)
+	routes.SetupImageRoutes(router) // Setup routes for images
 
 	server.NoRoute(func(ctx *gin.Context) {
 		ctx.JSON(http.StatusNotFound, gin.H{"status": "error", "message": "Route Not Found"})
 	})
 
 	log.Fatal(server.Run(":" + config.ServerPort))
-
 }

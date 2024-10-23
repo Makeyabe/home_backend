@@ -18,6 +18,6 @@ func init() {
 }
 
 func main() {
-	initializers.DB.AutoMigrate(&model.Student{}, &model.Teacher{}, &model.Booking{}, &model.Summary{}, &model.Formvisit{}, &model.Form{}, &model.FormSection{}, &model.FormField{}, &model.Image{})
+	initializers.DB.AutoMigrate(&model.Student{}, &model.Teacher{}, &model.Booking{}, &model.Summary{}, &model.Formvisit{}, &model.Form{}, &model.FormSection{}, &model.FormField{}, &model.Image{}, &model.FormResponse{}, &model.FormResponseField{})
 	fmt.Println("? Migration complete")
 }

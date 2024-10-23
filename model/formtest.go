@@ -14,7 +14,7 @@ type Form struct {
 	Sections  []FormSection  `gorm:"foreignKey:FormID"`          // One-to-many relationship with FormSection
 	CreatedAt time.Time      `json:"-"`                          // Exclude CreatedAt from JSON
 	UpdatedAt time.Time      `json:"-"`                          // Exclude UpdatedAt from JSON
-	DeletedAt gorm.DeletedAt `json:"-"`                          // Exclude DeletedAt from JSON
+	DeletedAt gorm.DeletedAt `json:"-"`                         
 }
 
 // FormSection represents each section within the form (e.g., Housing, Environment)

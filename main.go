@@ -19,6 +19,7 @@ var (
 	TeacherRouteController routes.TeacherRouteController
 	StudentController      *controllers.StudentController
 	FormController         *controllers.FormController
+	FormResponse           *controllers.FormResponseController
 )
 
 func init() {
@@ -36,6 +37,7 @@ func init() {
 
 	StudentController = controllers.NewStudentController(initializers.DB)
 	FormController = controllers.NewFormController(initializers.DB)
+	FormResponse = controllers.NewFormResponseController(initializers.DB)
 
 	server = gin.Default()
 }
@@ -62,6 +64,8 @@ func main() {
 	TeacherRouteController.TeacherRoutes(router)
 	routes.StudentRoutes(router, StudentController)
 	routes.FormRoutes(router, FormController)
+	routes.FormResponseRoutes(router, FormResponse)
+	
 	routes.SetupImageRoutes(router) // Setup routes for images
 
 	server.NoRoute(func(ctx *gin.Context) {

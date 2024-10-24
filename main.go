@@ -19,6 +19,7 @@ var (
 	TeacherRouteController routes.TeacherRouteController
 	StudentController      *controllers.StudentController
 	FormController         *controllers.FormController
+	FormResponse           *controllers.FormResponseController
 )
 
 func init() {
@@ -36,6 +37,7 @@ func init() {
 
 	StudentController = controllers.NewStudentController(initializers.DB)
 	FormController = controllers.NewFormController(initializers.DB)
+	FormResponse = controllers.NewFormResponseController(initializers.DB)
 
 	server = gin.Default()
 }
@@ -47,8 +49,9 @@ func main() {
 	}
 
 	corsConfig := cors.DefaultConfig()
-	corsConfig.AllowOrigins = []string{"http://localhost:8000", config.ClientOrigin}
+	corsConfig.AllowOrigins = []string{"http://localhost:8000", config.ClientOrigin, "http://localhost:3000"}
 	corsConfig.AllowCredentials = true
+	corsConfig.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}
 	corsConfig.AllowHeaders = []string{"Access-Control-Allow-Origin", "*"}
 	server.Use(cors.New(corsConfig))
 
@@ -62,6 +65,8 @@ func main() {
 	TeacherRouteController.TeacherRoutes(router)
 	routes.StudentRoutes(router, StudentController)
 	routes.FormRoutes(router, FormController)
+	routes.FormResponseRoutes(router, FormResponse)
+	
 	routes.SetupImageRoutes(router) // Setup routes for images
 
 	server.NoRoute(func(ctx *gin.Context) {

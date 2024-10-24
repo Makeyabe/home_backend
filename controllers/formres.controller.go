@@ -19,32 +19,41 @@ func NewFormResponseController(db *gorm.DB) *FormResponseController {
 
 // CreateFormResponse รับข้อมูลการส่งฟอร์มจากผู้ใช้และบันทึกลงฐานข้อมูล
 func (frc *FormResponseController) CreateFormResponse(ctx *gin.Context) {
-    var formSections model.FormResponseSection
+    var formRequest struct {
+        TeacherID uint                       `json:"teacherID"`
+        StudentID uint                       `json:"studentID"`
+        Term      string                     `json:"term"`
+        Names     []model.NameEntry          `json:"names"`
+        Sections  []model.FormResponseSection `json:"sections"`   // Array of sections
+    }
 
-	// // Bind JSON payload with formSections (array of sections)
-	// if err := ctx.ShouldBindJSON(&formSections); err != nil {
-	// 	log.Println("Failed to get body:", err)
-	// 	ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
-	// 	return
-	// }
+    // // Bind JSON payload with formRequest
+    if err := ctx.ShouldBindJSON(&formRequest); err != nil {
+        log.Println("Failed to get body:", err)
+        ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+        return
+    }
 
-	// // Create a new FormResponse (assuming you have FormID, UserID, and Term from context or payload)
-	// formResponse := model.FormResponse{
-	// 	FormID:   1,  // Replace with actual value
-	// 	UserID:   1,  // Replace with actual value
-	// 	Term:     "2024 Term", // Replace with actual value from request if needed
-	// 	Sections: formSections,
-	// }
+    // // Create a new FormResponse object with the incoming data
+    // formResponse := model.FormResponse{
+    //     TeacherID: formRequest.TeacherID,
+    //     StudentID: formRequest.StudentID,
+    //     Term:      formRequest.Term,
+    //     Names:     formRequest.Names,
+    //     Sections:  formRequest.Sections,  // Attach the sections array
+    // }
 
-	// // Save the form response along with sections and fields
-	// if err := db.Create(&formResponse).Error; err != nil {
-	// 	log.Println("Failed to create form response:", err)
-	// 	ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create form response"})
-	// 	return
-	// } 
+    // // Save the form response along with sections and fields in the database
+    // if err := db.Create(&formResponse).Error; err != nil {
+    //     log.Println("Failed to create form response:", err)
+    //     ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create form response"})
+    //     return
+    // }
 
-	ctx.JSON(http.StatusCreated, formSections)
+    // Respond with the created form response
+    ctx.JSON(http.StatusCreated, formRequest)
 }
+
 
 // GetFormResponse รับข้อมูล FormResponse จากฐานข้อมูลตาม ID
 func (frc *FormResponseController) GetFormResponse(ctx *gin.Context) {

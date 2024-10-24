@@ -19,22 +19,31 @@ func NewFormResponseController(db *gorm.DB) *FormResponseController {
 
 // CreateFormResponse รับข้อมูลการส่งฟอร์มจากผู้ใช้และบันทึกลงฐานข้อมูล
 func (frc *FormResponseController) CreateFormResponse(ctx *gin.Context) {
-	var formResponse model.FormResponse
+    var formSections model.FormResponseSection
 
-	// // Bind JSON payload กับตัวแปร formResponse
-	if err := ctx.ShouldBindJSON(&formResponse); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": formResponse})
-		return
-	}
+	// // Bind JSON payload with formSections (array of sections)
+	// if err := ctx.ShouldBindJSON(&formSections); err != nil {
+	// 	log.Println("Failed to get body:", err)
+	// 	ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+	// 	return
+	// }
 
-	// // บันทึกลงฐานข้อมูล
-	if err := db.Create(&formResponse).Error; err != nil {
-		log.Println("Failed to create form response:", err)
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create form response"})
-		return
-	}
+	// // Create a new FormResponse (assuming you have FormID, UserID, and Term from context or payload)
+	// formResponse := model.FormResponse{
+	// 	FormID:   1,  // Replace with actual value
+	// 	UserID:   1,  // Replace with actual value
+	// 	Term:     "2024 Term", // Replace with actual value from request if needed
+	// 	Sections: formSections,
+	// }
 
-	ctx.JSON(http.StatusCreated, formResponse)
+	// // Save the form response along with sections and fields
+	// if err := db.Create(&formResponse).Error; err != nil {
+	// 	log.Println("Failed to create form response:", err)
+	// 	ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create form response"})
+	// 	return
+	// } 
+
+	ctx.JSON(http.StatusCreated, formSections)
 }
 
 // GetFormResponse รับข้อมูล FormResponse จากฐานข้อมูลตาม ID
@@ -100,4 +109,37 @@ func (frc *FormResponseController) DeleteFormResponse(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"message": "Form response deleted"})
+}
+
+func (frc *FormResponseController) CheckFormResponseExists(ctx *gin.Context) {
+	var formResponse model.FormResponse
+
+	// รับข้อมูลจาก JSON payload ที่ส่งมาจากหน้าบ้าน
+	var input struct {
+		FormID uint   `json:"form_id"`
+		UserID uint   `json:"user_id"`
+		Term   string `json:"term"`
+	}
+
+	if err := ctx.ShouldBindJSON(&input); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input data"})
+		return
+	}
+
+	// ค้นหาข้อมูลที่มี FormID, UserID และ Term ตรงกัน
+	err := frc.DB.Where("form_id = ? AND user_id = ? AND term = ?", input.FormID, input.UserID, input.Term).First(&formResponse).Error
+
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			// ถ้าไม่พบข้อมูล
+			ctx.JSON(http.StatusOK, gin.H{"exists": false, "message": "No form response found for this term"})
+		} else {
+			// ถ้าเกิดข้อผิดพลาดอื่นๆ
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check form response"})
+		}
+		return
+	}
+
+	// ถ้าพบข้อมูล
+	ctx.JSON(http.StatusOK, gin.H{"exists": true, "message": "Form response found for this term", "data": formResponse})
 }

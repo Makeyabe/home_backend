@@ -20,18 +20,18 @@ func NewFormController(db *gorm.DB) *FormController {
 
 // GetForms ดึงข้อมูลฟอร์มทั้งหมด
 func (fc *FormController) GetForms(ctx *gin.Context) {
-    var forms []model.Form // Slice to hold multiple forms
+	var forms []model.Form // Slice to hold multiple forms
 
-    // Preload associated Sections and Fields together
-    if err := fc.DB.Preload("Sections.Fields").Find(&forms).Error; err != nil {
-        ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-        return
-    }
+	// Preload associated Sections and Fields together
+	if err := fc.DB.Preload("Sections.Fields").Find(&forms).Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 
-    log.Println(forms)
+	log.Println(forms)
 
-    // Send the data back as a JSON response
-    ctx.JSON(http.StatusOK, forms)
+	// Send the data back as a JSON response
+	ctx.JSON(http.StatusOK, forms)
 }
 
 // GetForm ดึงข้อมูลฟอร์มตาม ID

@@ -48,65 +48,41 @@ func (sc *StudentController) StudentLogin(c *gin.Context) {
 func (sc *StudentController) GetStudentData(c *gin.Context) {
 	var students []*model.Student
 
-	tx := sc.DB.Begin()
-	if tx.Error != nil {
-		c.JSON(500, gin.H{"error": "Failed to start transaction"})
-		return
-	}
-
-	if err := tx.Find(&students).Error; err != nil {
-		tx.Rollback() // Rollback on error
+	// Fetch all students
+	if err := sc.DB.Find(&students).Error; err != nil {
 		c.JSON(500, gin.H{"error": "Failed to retrieve students"})
 		return
 	}
 
-	studentUsernames := make([]string, len(students))
-	for i, student := range students {
-		studentUsernames[i] = student.Username
-	}
-
-	var responseForms []*model.ResponseForm
-	if err := tx.Where("student_id IN ? AND term IN ?", studentUsernames, []string{"1", "2"}).Find(&responseForms).Error; err != nil {
-		tx.Rollback() // Rollback on error
-		c.JSON(500, gin.H{"error": "Failed to retrieve response forms"})
+	// Populate visit data for each student
+	if err := sc.populateVisitData(students); err != nil {
+		c.JSON(500, gin.H{"error": "Failed to retrieve visit information"})
 		return
 	}
 
-	if err := tx.Commit().Error; err != nil {
-		c.JSON(500, gin.H{"error": "Failed to commit transaction"})
-		return
-	}
-
-	responseMap := make(map[string]map[string]bool)
-	for _, responseForm := range responseForms {
-		if responseMap[responseForm.StudentID] == nil {
-			responseMap[responseForm.StudentID] = make(map[string]bool)
-		}
-		responseMap[responseForm.StudentID][responseForm.Term] = true
-	}
-
-	for _, student := range students {
-		student.FirstVisit = responseMap[student.Username]["1"]
-		student.SecondVisit = responseMap[student.Username]["2"]
-	}
-
+	// Send response with students data
 	c.JSON(200, students)
 }
 
 
 func (sc *StudentController) GetStudentByID(c *gin.Context) {
-	// ดึงค่า ID จากพารามิเตอร์ใน URL
+	// Retrieve student ID from URL parameter
 	studentID := c.Param("id")
-
 	var student model.Student
 
-	// ดึงข้อมูลนักเรียนจากฐานข้อมูลโดยใช้ ID
+	// Fetch student by ID
 	if err := sc.DB.Where("username = ?", studentID).First(&student).Error; err != nil {
 		c.JSON(404, gin.H{"error": "Student not found"})
 		return
 	}
 
-	// ส่งข้อมูลนักเรียนกลับไปยัง client
+	// Populate visit data for the single student
+	if err := sc.populateVisitData([]*model.Student{&student}); err != nil {
+		c.JSON(500, gin.H{"error": "Failed to retrieve visit information"})
+		return
+	}
+
+	// Send response with student data
 	c.JSON(200, student)
 }
 
@@ -153,4 +129,36 @@ func (sc *StudentController) SaveStudent(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Student saved successfully", "data": student})
+}
+
+
+func (sc *StudentController) populateVisitData(students []*model.Student) error {
+	// Extract student usernames to fetch visit records
+	studentUsernames := make([]string, len(students))
+	for i, student := range students {
+		studentUsernames[i] = student.Username
+	}
+
+	// Fetch ResponseForm data for terms 1 and 2 for the students
+	var responseForms []*model.ResponseForm
+	if err := sc.DB.Where("student_id IN ? AND term IN ?", studentUsernames, []string{"1", "2"}).Find(&responseForms).Error; err != nil {
+		return err
+	}
+
+	// Map to store visit data by student and term
+	responseMap := make(map[string]map[string]bool)
+	for _, responseForm := range responseForms {
+		if responseMap[responseForm.StudentID] == nil {
+			responseMap[responseForm.StudentID] = make(map[string]bool)
+		}
+		responseMap[responseForm.StudentID][responseForm.Term] = true
+	}
+
+	// Update each student's FirstVisit and SecondVisit based on responseMap
+	for _, student := range students {
+		student.FirstVisit = responseMap[student.Username]["1"]
+		student.SecondVisit = responseMap[student.Username]["2"]
+	}
+
+	return nil
 }

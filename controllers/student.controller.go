@@ -46,16 +46,53 @@ func (sc *StudentController) StudentLogin(c *gin.Context) {
 }
 
 func (sc *StudentController) GetStudentData(c *gin.Context) {
-	var students []model.Student
+	var students []*model.Student
 
-	// ดึงข้อมูลนักเรียนทั้งหมดจากฐานข้อมูล
-	if err := sc.DB.Find(&students).Error; err != nil {
+	tx := sc.DB.Begin()
+	if tx.Error != nil {
+		c.JSON(500, gin.H{"error": "Failed to start transaction"})
+		return
+	}
+
+	if err := tx.Find(&students).Error; err != nil {
+		tx.Rollback() // Rollback on error
 		c.JSON(500, gin.H{"error": "Failed to retrieve students"})
 		return
 	}
 
-	c.JSON(200, students) // ส่งข้อมูลนักเรียนกลับไปยัง client
+	studentUsernames := make([]string, len(students))
+	for i, student := range students {
+		studentUsernames[i] = student.Username
+	}
+
+	var responseForms []*model.ResponseForm
+	if err := tx.Where("student_id IN ? AND term IN ?", studentUsernames, []string{"1", "2"}).Find(&responseForms).Error; err != nil {
+		tx.Rollback() // Rollback on error
+		c.JSON(500, gin.H{"error": "Failed to retrieve response forms"})
+		return
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		c.JSON(500, gin.H{"error": "Failed to commit transaction"})
+		return
+	}
+
+	responseMap := make(map[string]map[string]bool)
+	for _, responseForm := range responseForms {
+		if responseMap[responseForm.StudentID] == nil {
+			responseMap[responseForm.StudentID] = make(map[string]bool)
+		}
+		responseMap[responseForm.StudentID][responseForm.Term] = true
+	}
+
+	for _, student := range students {
+		student.FirstVisit = responseMap[student.Username]["1"]
+		student.SecondVisit = responseMap[student.Username]["2"]
+	}
+
+	c.JSON(200, students)
 }
+
 
 func (sc *StudentController) GetStudentByID(c *gin.Context) {
 	// ดึงค่า ID จากพารามิเตอร์ใน URL
@@ -76,8 +113,8 @@ func (sc *StudentController) GetStudentByID(c *gin.Context) {
 func (sc *StudentController) UpdateStudent(ctx *gin.Context) {
 	var student model.Student // Variable to hold the updated data
 	id := ctx.Param("id")     // Get the student ID from the URL
-	log.Println("Student",id)  
-	
+	log.Println("Student", id)
+
 	// Bind the JSON body to the student struct
 	if err := ctx.ShouldBindJSON(&student); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -91,4 +128,29 @@ func (sc *StudentController) UpdateStudent(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"message": "Student updated successfully"})
+}
+
+func (sc *StudentController) SaveStudent(c *gin.Context) {
+	var student model.Student
+
+	// รับข้อมูล JSON ที่ส่งมาจาก client และ bind เข้ากับ student struct
+	if err := c.ShouldBindJSON(&student); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+		return
+	}
+
+	// ตรวจสอบว่ามี username หรือ stu_id ที่ซ้ำกันในฐานข้อมูลหรือไม่
+	var existingStudent model.Student
+	if err := sc.DB.Where("username = ? OR stu_id = ?", student.Username, student.StuId).First(&existingStudent).Error; err == nil {
+		c.JSON(http.StatusConflict, gin.H{"error": "Username or Student ID already exists"})
+		return
+	}
+
+	// บันทึกข้อมูลลงในฐานข้อมูล
+	if err := sc.DB.Create(&student).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save student"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Student saved successfully", "data": student})
 }

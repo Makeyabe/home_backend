@@ -7,7 +7,7 @@ type Student struct {
 	Name          string `gorm:"type:varchar(255)"` // ชื่อ
 	Nickname      string `gorm:"type:varchar(255)"` // ชื่อเล่น
 	Idcard        string `gorm:"type:varchar(255)"` //
-	StuId         int    `gorm:"type:integer"`
+	StuId         int    `gorm:"type:integer;unique"` // StuId is an integer
 	StuPhone      string `gorm:"type:varchar(100)"` //
 	StuClass      string `gorm:"type:varchar(10)"`  //
 	StuBirthDate  string `gorm:"type:varchar(255)"` //

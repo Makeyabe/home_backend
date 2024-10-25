@@ -4,7 +4,7 @@ type Teacher struct {
 	ID           int
 	Classid      int
 	StuClass     string `gorm:"type:varchar(20)"`
-	Username     string `gorm:"type:varchar(20)"`
+	Username     string `gorm:"type:varchar(50);unique"`
 	Password     string `gorm:"type:varchar(255)"`
 	Formid       int    `gorm:"type:integer"`
 	Bookingid    int    `gorm:"type:integer"`

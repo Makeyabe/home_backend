@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/Makeyabe/Home_Backend/model"
@@ -44,26 +45,49 @@ func (tc *TeacherController) Login(c *gin.Context) {
 }
 
 func (tc *TeacherController) GetStudentsByClass(c *gin.Context) {
-    // ดึง ID ของคุณครูจาก URL parameter
     teacherID := c.Param("id")
 
     var teacher model.Teacher
-    var students []model.Student
-
-    // ค้นหาข้อมูลของคุณครูจาก teacherID
-    if err := tc.DB.Where("username = ?", teacherID).First(&teacher).Error; err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve teacher"})
+	if err := tc.DB.Select("stu_class").Where("username = ?", teacherID).First(&teacher).Error; err != nil {
+        if errors.Is(err, gorm.ErrRecordNotFound) {
+            c.JSON(http.StatusNotFound, gin.H{"error": "Teacher not found"})
+        } else {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve teacher"})
+        }
         return
     }
-
-    // ดึงค่า teacherClass จากข้อมูลคุณครู
-    teacherClass := teacher.StuClass
-
-    // ค้นหานักเรียนที่มี stuClass ตรงกับ teacherClass ของคุณครู
-    if err := tc.DB.Where("stu_class = ?", teacherClass).Find(&students).Error; err != nil {
+	
+    var students []*model.Student // ใช้ pointer เพื่อประหยัด memory
+    if err := tc.DB.Where("stu_class = ?", teacher.StuClass).Find(&students).Error; err != nil {
         c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve students"})
         return
     }
+
+
+	studentUsernames := make([]string, len(students))
+    for i, student := range students {
+        studentUsernames[i] = student.Username
+    }
+
+	var responseForms []*model.ResponseForm
+	if err := tc.DB.Where("student_id IN ? AND term IN ?", studentUsernames, []string{"1", "2"}).Find(&responseForms).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve visit information"})
+        return
+    }
+
+	responseMap := make(map[string]map[string]bool)
+    for _, responseForm := range responseForms {
+        if responseMap[responseForm.StudentID] == nil {
+            responseMap[responseForm.StudentID] = make(map[string]bool)
+        }
+        responseMap[responseForm.StudentID][responseForm.Term] = true
+    }
+
+	 // Update students with visit information
+	 for _, student := range students {
+        student.FirstVisit = responseMap[student.Username]["1"]
+        student.SecondVisit = responseMap[student.Username]["2"]
+    } 
 
     // ส่งข้อมูลนักเรียนที่ตรงกับ stuClass กลับไปยัง client
     c.JSON(http.StatusOK, students)

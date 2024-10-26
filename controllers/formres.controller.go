@@ -21,8 +21,8 @@ func NewFormResponseController(db *gorm.DB) *FormResponseController {
 // CreateFormResponse รับข้อมูลการส่งฟอร์มจากผู้ใช้และบันทึกลงฐานข้อมูล
 func (frc *FormResponseController) CreateFormResponse(ctx *gin.Context) {
 	var formRequest struct {
-		TeacherID string                         `json:"teacherID"`
-		StudentID string                         `json:"studentID"`
+		TeacherID string                         `json:"teacher_id"`
+		StudentID string                         `json:"student_id"`
 		Term      string                      `json:"term"`
 		Names     []model.NameEntry           `json:"names"`
 		Sections  []model.ResponseSection `json:"sections"` // Array of sections

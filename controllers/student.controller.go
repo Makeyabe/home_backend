@@ -162,3 +162,55 @@ func (sc *StudentController) populateVisitData(students []*model.Student) error 
 
 	return nil
 }
+
+func (sc *StudentController) SummaryReport(c *gin.Context) {
+	var countStudent int64
+	var studentIDs []string
+
+	// ดึง Student ID ที่ไม่ซ้ำ
+	if err := sc.DB.Model(&model.ResponseForm{}).
+		Distinct("student_id").
+		Pluck("student_id", &studentIDs).
+		Count(&countStudent).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถดึงข้อมูลนักเรียนที่ไม่ซ้ำได้"})
+		return
+	}
+
+	// กำหนดตัวแปรเพื่อจัดเก็บข้อมูลแบบกลุ่ม
+	var contextSections, familySections, studentSections, schoolSections []model.ResponseSection
+
+	// ดึงข้อมูล section โดยเชื่อมกับ response forms
+	for _, studentID := range studentIDs {
+		var sections []model.ResponseSection
+		if err := sc.DB.Preload("Fields").
+			Joins("JOIN response_forms ON response_forms.id = response_sections.response_form_id").
+			Where("response_forms.student_id = ?", studentID).
+			Find(&sections).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถดึงข้อมูล section ได้"})
+			return
+		}
+
+		// แยกกลุ่ม section ตาม title
+		for _, section := range sections {
+			switch section.Title {
+			case "Context":
+				contextSections = append(contextSections, section)
+			case "Family":
+				familySections = append(familySections, section)
+			case "Student":
+				studentSections = append(studentSections, section)
+			case "School needs":
+				schoolSections = append(schoolSections, section)
+			}
+		}
+	}
+
+	// ส่ง JSON ที่จัดกลุ่มตามหมวดหมู่ของ section
+	c.JSON(http.StatusOK, gin.H{
+		"unique_student_count": countStudent,
+		"context_sections":     contextSections,
+		"family_sections":      familySections,
+		"student_sections":     studentSections,
+		"school_sections":      schoolSections,
+	})
+}

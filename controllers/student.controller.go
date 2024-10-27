@@ -1,8 +1,11 @@
 package controllers
 
 import (
+	"fmt"
 	"log"
+	"math"
 	"net/http"
+	"strings"
 
 	"github.com/Makeyabe/Home_Backend/model"
 	"github.com/gin-gonic/gin"
@@ -63,7 +66,6 @@ func (sc *StudentController) GetStudentData(c *gin.Context) {
 	// Send response with students data
 	c.JSON(200, students)
 }
-
 
 func (sc *StudentController) GetStudentByID(c *gin.Context) {
 	// Retrieve student ID from URL parameter
@@ -131,7 +133,6 @@ func (sc *StudentController) SaveStudent(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Student saved successfully", "data": student})
 }
 
-
 func (sc *StudentController) populateVisitData(students []*model.Student) error {
 	// Extract student usernames to fetch visit records
 	studentUsernames := make([]string, len(students))
@@ -163,54 +164,152 @@ func (sc *StudentController) populateVisitData(students []*model.Student) error 
 	return nil
 }
 
-func (sc *StudentController) SummaryReport(c *gin.Context) {
-	var countStudent int64
-	var studentIDs []string
+type SectionReport struct {
+	Level       string  `json:"level"`
+	Count       int     `json:"count"`
+	Percentage  float64 `json:"percentage"`
+	Description string  `json:"description"`
+}
 
-	// ดึง Student ID ที่ไม่ซ้ำ
+type TermSummary struct {
+	TotalStudents int                        `json:"total_students"`
+	Sections      map[string][]SectionReport `json:"sections"`
+}
+
+type SummaryResponse struct {
+	Terms    map[string]TermSummary `json:"terms"`
+	Combined TermSummary            `json:"combined"`
+}
+
+func (sc *StudentController) SummaryReport(c *gin.Context) {
+	// Fetch unique terms
+	var terms []string
 	if err := sc.DB.Model(&model.ResponseForm{}).
-		Distinct("student_id").
-		Pluck("student_id", &studentIDs).
-		Count(&countStudent).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถดึงข้อมูลนักเรียนที่ไม่ซ้ำได้"})
+		Distinct("term").
+		Pluck("term", &terms).Error; err != nil {
+		log.Println("Error fetching terms:", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถดึงข้อมูลเทอมได้"})
 		return
 	}
 
-	// กำหนดตัวแปรเพื่อจัดเก็บข้อมูลแบบกลุ่ม
-	var contextSections, familySections, studentSections, schoolSections []model.ResponseSection
+	// Descriptions for each level
+	levelDescriptions := map[int]string{
+		1: "ต้องการความช่วยเหลือเร่งด่วน",
+		2: "ต้องการความช่วยเหลือ",
+		3: "ต้องการความช่วยเหลือปานกลาง",
+		4: "อยู่ในสภาพดี",
+		5: "อยู่ในสภาพดีมาก",
+	}
 
-	// ดึงข้อมูล section โดยเชื่อมกับ response forms
-	for _, studentID := range studentIDs {
+	// Initialize response structure
+	response := SummaryResponse{
+		Terms:    make(map[string]TermSummary),
+		Combined: TermSummary{TotalStudents: 0, Sections: make(map[string][]SectionReport)},
+	}
+
+	combinedScoreCount := map[string]map[int]int{
+		"บริบท ( Context – C )":                        {1: 0, 2: 0, 3: 0, 4: 0, 5: 0},
+		"ครอบครัว ( Family – F )":                      {1: 0, 2: 0, 3: 0, 4: 0, 5: 0},
+		"นักเรียน (Student – S )":                      {1: 0, 2: 0, 3: 0, 4: 0, 5: 0},
+		"ความต้องการต่อโรงเรียน / อบจ. ( School – S )": {1: 0, 2: 0, 3: 0, 4: 0, 5: 0},
+	}
+	combinedTotalStudents := 0
+
+	for _, term := range terms {
+		// Count unique students for this term
+		var countStudents int64
+		if err := sc.DB.Model(&model.ResponseForm{}).
+			Where("term = ?", term).
+			Distinct("student_id").
+			Count(&countStudents).Error; err != nil {
+			log.Println("Error counting students for term", term, ":", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถนับจำนวนนักเรียนได้"})
+			return
+		}
+		combinedTotalStudents += int(countStudents)
+
+		// Fetch sections and fields for this term
 		var sections []model.ResponseSection
 		if err := sc.DB.Preload("Fields").
 			Joins("JOIN response_forms ON response_forms.id = response_sections.response_form_id").
-			Where("response_forms.student_id = ?", studentID).
+			Where("response_forms.term = ?", term).
 			Find(&sections).Error; err != nil {
+			log.Println("Error fetching sections for term", term, ":", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถดึงข้อมูล section ได้"})
 			return
 		}
 
-		// แยกกลุ่ม section ตาม title
+		// Initialize term-specific score count
+		termScoreCount := map[string]map[int]int{
+			"บริบท ( Context – C )":                        {1: 0, 2: 0, 3: 0, 4: 0, 5: 0},
+			"ครอบครัว ( Family – F )":                      {1: 0, 2: 0, 3: 0, 4: 0, 5: 0},
+			"นักเรียน (Student – S )":                      {1: 0, 2: 0, 3: 0, 4: 0, 5: 0},
+			"ความต้องการต่อโรงเรียน / อบจ. ( School – S )": {1: 0, 2: 0, 3: 0, 4: 0, 5: 0},
+		}
+
+		// Track student average scores per section
+		studentScores := make(map[string][]float64)
 		for _, section := range sections {
-			switch section.Title {
-			case "Context":
-				contextSections = append(contextSections, section)
-			case "Family":
-				familySections = append(familySections, section)
-			case "Student":
-				studentSections = append(studentSections, section)
-			case "School needs":
-				schoolSections = append(schoolSections, section)
+			for _, field := range section.Fields {
+				studentKey := fmt.Sprintf("%d-%s", section.ResponseFormID, section.Title)
+				studentScores[studentKey] = append(studentScores[studentKey], float64(field.Score))
 			}
 		}
+
+		// Calculate average and assign level
+		for studentKey, scores := range studentScores {
+			sectionTitle := strings.Split(studentKey, "-")[1]
+			avgScore := calculateAverage(scores)
+			roundedLevel := int(math.Round(avgScore))
+			termScoreCount[sectionTitle][roundedLevel]++
+			combinedScoreCount[sectionTitle][roundedLevel]++
+		}
+
+		// Build section reports
+		termSummary := TermSummary{
+			TotalStudents: int(countStudents),
+			Sections:      make(map[string][]SectionReport),
+		}
+		for sectionTitle, counts := range termScoreCount {
+			var sectionReports []SectionReport
+			for score, count := range counts {
+				percentage := (float64(count) / float64(countStudents)) * 100
+				sectionReports = append(sectionReports, SectionReport{
+					Level:       fmt.Sprintf("ระดับ %d", score),
+					Count:       count,
+					Percentage:  percentage,
+					Description: levelDescriptions[score],
+				})
+			}
+			termSummary.Sections[sectionTitle] = sectionReports
+		}
+		response.Terms[term] = termSummary
 	}
 
-	// ส่ง JSON ที่จัดกลุ่มตามหมวดหมู่ของ section
-	c.JSON(http.StatusOK, gin.H{
-		"unique_student_count": countStudent,
-		"context_sections":     contextSections,
-		"family_sections":      familySections,
-		"student_sections":     studentSections,
-		"school_sections":      schoolSections,
-	})
+	// Calculate combined summary
+	response.Combined.TotalStudents = combinedTotalStudents
+	for sectionTitle, counts := range combinedScoreCount {
+		var sectionReports []SectionReport
+		for score, count := range counts {
+			percentage := (float64(count) / float64(combinedTotalStudents)) * 100
+			sectionReports = append(sectionReports, SectionReport{
+				Level:       fmt.Sprintf("ระดับ %d", score),
+				Count:       count,
+				Percentage:  percentage,
+				Description: levelDescriptions[score],
+			})
+		}
+		response.Combined.Sections[sectionTitle] = sectionReports
+	}
+
+	c.JSON(http.StatusOK, response)
+}
+
+// Helper function to calculate the average of a float64 slice
+func calculateAverage(scores []float64) float64 {
+	var sum float64
+	for _, score := range scores {
+		sum += score
+	}
+	return sum / float64(len(scores))
 }

@@ -13,5 +13,6 @@ func FormResponseRoutes(router *gin.RouterGroup, FormResponseController *control
 		formRoutes.GET("/:id", FormResponseController.GetFormResponse)       // ดึงฟอร์มตอบสนองตาม ID
 		formRoutes.PUT("/:id", FormResponseController.UpdateFormResponse)    // แก้ไขฟอร์มตอบสนองตาม ID
 		formRoutes.DELETE("/:id", FormResponseController.DeleteFormResponse) // ลบฟอร์มตอบสนองตาม ID
+		formRoutes.GET("/student/:stu_id", FormResponseController.GetFormResponsesByStudentID) // ใช้ stu_id ในเส้นทาง
 	}
 }

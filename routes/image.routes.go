@@ -5,13 +5,13 @@ import (
     "github.com/gin-gonic/gin"
 )
 
-func SetupImageRoutes(router *gin.RouterGroup) {
+func SetupImageRoutes(router *gin.RouterGroup, ImageController *controllers.ImageController) {
     imageRoutes := router.Group("/images")
     {
-        imageRoutes.POST("/", controllers.CreateImage)
-        imageRoutes.GET("/", controllers.GetImages)
-        imageRoutes.GET("/:id", controllers.GetImage)
-        imageRoutes.PUT("/:id", controllers.UpdateImage)
-        imageRoutes.DELETE("/:id", controllers.DeleteImage)
+        imageRoutes.POST("/", ImageController.CreateImage)
+        // imageRoutes.GET("/", ImageController.GetImages)
+        // imageRoutes.GET("/:id", ImageController.GetImage)
+        // imageRoutes.PUT("/:id", ImageController.UpdateImage)
+        // imageRoutes.DELETE("/:id", ImageController.DeleteImage)
     }
 }

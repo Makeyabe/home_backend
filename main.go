@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/Makeyabe/Home_Backend/controllers"
 	"github.com/Makeyabe/Home_Backend/initializers"
@@ -20,6 +21,8 @@ var (
 	StudentController      *controllers.StudentController
 	FormController         *controllers.FormController
 	FormResponse           *controllers.FormResponseController
+	ImageController        *controllers.ImageController
+	BookingController      *controllers.BookingController
 )
 
 func init() {
@@ -38,6 +41,9 @@ func init() {
 	StudentController = controllers.NewStudentController(initializers.DB)
 	FormController = controllers.NewFormController(initializers.DB)
 	FormResponse = controllers.NewFormResponseController(initializers.DB)
+
+	ImageController = controllers.NewImageController(initializers.DB)
+	BookingController = controllers.NewBookingController(initializers.DB)
 
 	server = gin.Default()
 }
@@ -66,12 +72,20 @@ func main() {
 	routes.StudentRoutes(router, StudentController)
 	routes.FormRoutes(router, FormController)
 	routes.FormResponseRoutes(router, FormResponse)
-	
-	routes.SetupImageRoutes(router) // Setup routes for images
+	routes.SetupImageRoutes(router, ImageController) // Setup routes for images
+	routes.SetupBookingRoutes(server, initializers.DB)
 
 	server.NoRoute(func(ctx *gin.Context) {
 		ctx.JSON(http.StatusNotFound, gin.H{"status": "error", "message": "Route Not Found"})
 	})
+	server.Static("/images", "./uploads/images")
+
+	if _, err := os.Stat("uploads/images"); os.IsNotExist(err) {
+		err := os.MkdirAll("uploads/images", os.ModePerm)
+		if err != nil {
+			log.Fatalf("Failed to create directory: %v", err)
+		}
+	}
 
 	log.Fatal(server.Run(":" + config.ServerPort))
 }

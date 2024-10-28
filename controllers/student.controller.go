@@ -265,14 +265,15 @@ func (sc *StudentController) SummaryReport(c *gin.Context) {
 			combinedScoreCount[sectionTitle][roundedLevel]++
 		}
 
-		// Build section reports
+		// Build section reports for this term, sorted by level
 		termSummary := TermSummary{
 			TotalStudents: int(countStudents),
 			Sections:      make(map[string][]SectionReport),
 		}
 		for sectionTitle, counts := range termScoreCount {
 			var sectionReports []SectionReport
-			for score, count := range counts {
+			for score := 1; score <= 5; score++ { // Loop from 1 to 5 to ensure order
+				count := counts[score]
 				percentage := (float64(count) / float64(countStudents)) * 100
 				sectionReports = append(sectionReports, SectionReport{
 					Level:       fmt.Sprintf("ระดับ %d", score),
@@ -286,11 +287,12 @@ func (sc *StudentController) SummaryReport(c *gin.Context) {
 		response.Terms[term] = termSummary
 	}
 
-	// Calculate combined summary
+	// Calculate combined summary across all terms, sorted by level
 	response.Combined.TotalStudents = combinedTotalStudents
 	for sectionTitle, counts := range combinedScoreCount {
 		var sectionReports []SectionReport
-		for score, count := range counts {
+		for score := 1; score <= 5; score++ { // Loop from 1 to 5 to ensure order
+			count := counts[score]
 			percentage := (float64(count) / float64(combinedTotalStudents)) * 100
 			sectionReports = append(sectionReports, SectionReport{
 				Level:       fmt.Sprintf("ระดับ %d", score),
